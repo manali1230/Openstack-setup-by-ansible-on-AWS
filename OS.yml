@@ -1,0 +1,90 @@
+- hosts: tag_os_OpenStack
+  tasks:
+  - name: install queen version and openstack-packstack
+    package:
+      name: "{{ item }}"
+      state: present
+    with_items:
+       - centos-release-openstack-queens.noarch
+       - openstack-packstack
+       - firewalld
+       - vim
+  
+  - name: do  permit traffic in default zone on port 22/tcp
+    ansible.posix.firewalld:
+      port: 22/tcp
+      permanent: yes
+      state: enabled
+
+  - name: enable firewalld
+    service:
+      name: firewalld
+      state: started
+
+  - name: Put SELinux in permissive mode, logging actions that would be blocked.
+    ansible.posix.selinux:
+      policy: targeted
+      state: permissive
+
+  - name: search a.txt
+    command: sudo ls a.txt
+    register: file 
+    ignore_errors: True
+
+  - name: Packstack
+    command: packstack --gen-answer-file=a.txt
+    when: file.rc != 0
+
+  - name: Allow centos to have passwordless sudo
+    lineinfile:
+      dest: /etc/sudoers
+      state: present
+      regexp: '^%wheel'
+      line: 'centos ALL=(ALL)    ALL'
+      validate: 'visudo -cf %s'
+
+  - name: Heat Added
+    lineinfile:
+      dest: a.txt
+      state: present
+      regexp: 'CONFIG_HEAT_INSTALL=n'
+      line: 'CONFIG_HEAT_INSTALL=y'
+
+  - name: Magnum Added
+    lineinfile:
+      dest: a.txt
+      state: present
+      regexp: 'CONFIG_MAGNUM_INSTALL=n'
+      line: 'CONFIG_MAGNUM_INSTALL=y'
+
+  - name: Demo no
+    lineinfile:
+      dest: a.txt
+      state: present
+      regexp: 'CONFIG_PROVISION_DEMO=y'
+      line: 'CONFIG_PROVISION_DEMO=n'
+  
+  - name: Set timezone to Asia/Kolkata
+    community.general.timezone:
+      name: Asia/Kolkata
+
+  - name: update the system
+    yum:
+      name: "*"
+      state: latest
+
+  - name: packstack
+    command: packstack --answer-file=a.txt
+
+  - name: add public IP
+    ansible.builtin.lineinfile:
+      path: /etc/httpd/conf.d/15-horizon_vhost.conf
+      regexp: '## Server aliases'
+      line: "ServerAlias {{ groups['tag_os_OpenStack'][0] }}"
+
+  - name: Restart httpd
+    service:
+      name: httpd
+      state: restarted
+
+      

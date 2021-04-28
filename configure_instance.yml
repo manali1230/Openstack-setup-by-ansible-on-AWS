@@ -1,0 +1,33 @@
+- hosts: localhost
+  tasks:
+          
+  - name: Openstack SG 
+    ec2_group:
+      name: openstack-sg
+      description: sg with rule descriptions
+      vpc_id: vpc-939d80fb
+      region: ap-south-1
+      rules:
+        - proto: all
+          ports:
+          - 0
+          cidr_ip: 0.0.0.0/0
+          rule_desc: allow all  
+  - name: Launch Centos7
+    ec2:
+      region: ap-south-1
+      key_name: ELB
+      instance_type: t2.xlarge
+      image: ami-026f33d38b6410e30
+      wait: yes
+      group: openstack-sg
+      count: 1
+      vpc_subnet_id: subnet-73e0da1b
+      instance_tags:
+         os: OpenStack
+      assign_public_ip: yes
+      volumes:
+      - device_name: /dev/sda1
+        volume_type: gp2
+        volume_size: 80
+        delete_on_termination: yes
